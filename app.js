@@ -112,6 +112,50 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     }catch(e){showToast(e.message);}
     finally{testButton.disabled=false;testButton.textContent="Test AI Turn";}
   });
+
+  const live=document.createElement("button");live.className="button gold";live.textContent="Open RPG";document.querySelector(".topbar .actions").append(live);
+  const campaignKey="interstory.live.campaigns";
+  live.onclick=()=>{
+    if(!token){showToast("Connect Backend first.");return;}
+    const panel=document.createElement("dialog");panel.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:20px;width:min(850px,94vw);max-height:90vh;overflow:auto";
+    document.body.append(panel);panel.addEventListener("close",()=>panel.remove());panel.showModal();
+    let busy=false;
+    const headers=()=>({Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"});
+    const read=async path=>{const r=await fetch(api+"/contents/"+path,{headers:headers(),cache:"no-store",redirect:"error"});if(r.status===404)return null;if(!r.ok)throw Error("GitHub HTTP "+r.status);const f=await r.json();return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(f.content.replace(/\s/g,"")),c=>c.charCodeAt(0))));};
+    const roster=()=>{try{return JSON.parse(localStorage.getItem(campaignKey)||"[]")}catch(_){return []}};
+    const remember=(id,name)=>{const list=roster().filter(x=>x.id!==id);list.push({id,name});localStorage.setItem(campaignKey,JSON.stringify(list));};
+    const make=(tag,text)=>{const e=document.createElement(tag);e.textContent=text;return e};
+    const btn=(label,fn)=>{const b=make("button",label);b.className="button gold";b.type="button";b.onclick=fn;return b};
+    function frame(title){panel.replaceChildren(make("h2",title),btn("Close",()=>panel.close()));}
+    async function play(id,turn,directive){
+      if(busy||!directive.trim())return;
+      if(!confirm("Generate the next paid AI response?"))return;
+      busy=true;const request=uid();const credential=token;
+      frame("Resolving adventure…");const status=make("p","Submitting to private backend. Keep this window open.");panel.append(status);
+      try{
+        const response=await fetch(api+"/actions/workflows/play.yml/dispatches",{method:"POST",headers:headers(),redirect:"error",body:JSON.stringify({ref:"main",inputs:{request_id:request,payload:JSON.stringify({campaign_id:id,base_turn:turn,directive})}})});
+        if(!response.ok)throw Error("Dispatch HTTP "+response.status);
+        status.textContent="The DM is preparing your adventure…";
+        for(let i=0;i<120;i++){await new Promise(r=>setTimeout(r,4000));if(token!==credential)throw Error("Disconnected");const data=await read("results/"+request+".json");if(data){remember(id,String(data.state.name||data.state.character?.name||roster().find(x=>x.id===id)?.name||"Custom adventure"));display(data);return;}}
+        throw Error("Timed out. Resume the campaign before retrying; the workflow may still finish.");
+      }catch(e){status.textContent=e.message;panel.append(btn("Return to adventures",homeLive));}finally{busy=false;}
+    }
+    function display(data){
+      frame("Adventure · Turn "+data.turn);
+      panel.append(btn("Adventure roster",homeLive));
+      const story=make("div",data.narrative);story.className="narrative";story.style.whiteSpace="pre-wrap";panel.append(story);
+      const details=document.createElement("details");details.append(make("summary","Character & world state"));const pre=make("pre",JSON.stringify(data.state,null,2));pre.style.whiteSpace="pre-wrap";pre.style.overflowWrap="anywhere";details.append(pre);panel.append(details);
+      renderDynamicDirectives(data.next_directives,panel,(directive)=>play(data.campaign_id,data.turn,directive));
+    }
+    function homeLive(){
+      if(busy)return;frame("Create your own adventure");
+      const vision=document.createElement("textarea");vision.rows=7;vision.style.width="100%";vision.placeholder="Describe your world, character concept, power fantasy, mechanics and preferred gameplay…";
+      panel.append(vision,btn("Generate character creation",()=>{if(!vision.value.trim())return;const id=uid();remember(id,vision.value.slice(0,60));play(id,-1,vision.value);}),make("h3","Resume adventures"));
+      for(const item of roster())panel.append(btn(item.name,async()=>{try{const data=await read("campaigns/"+item.id+".json");if(data)display(data);else showToast("No completed turn yet. Check GitHub Actions.")}catch(e){showToast(e.message)}}));
+    }
+    homeLive();
+  };
+
   async function authenticate(candidate,mode){
     input.value="";
     if(!candidate){status.textContent="Enter your token first.";return;}
@@ -129,7 +173,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   try{const saved=localStorage.getItem(tokenKey), session=sessionStorage.getItem(tokenKey);if(saved||session){const mode=saved?"device":"session";dialog.querySelector("#backend-mode").value=mode;authenticate(saved||session,mode);}}catch(_){}
 })();
 
-function renderDynamicDirectives(groups, host){
+function renderDynamicDirectives(groups, host, onSubmit){
   const form=document.createElement("form");
   const readers=[];
   const add=(label,type,options=[])=>{
@@ -152,7 +196,7 @@ function renderDynamicDirectives(groups, host){
   }
   add("Custom actions","textarea");add("Experimentation","textarea");
   const preview=document.createElement("pre");preview.className="mono";
-  const submit=document.createElement("button");submit.className="button gold";submit.type="submit";submit.textContent="Build next directive";
-  form.append(submit,preview);form.addEventListener("submit",e=>{e.preventDefault();preview.textContent=readers.map(read=>read()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");});
+  const submit=document.createElement("button");submit.className="button gold";submit.type="submit";submit.textContent=onSubmit?"Resolve next turn":"Build next directive";
+  form.append(submit,preview);form.addEventListener("submit",e=>{e.preventDefault();preview.textContent=readers.map(read=>read()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");if(onSubmit)onSubmit(preview.textContent,submit);});
   host.append(form);
 }
