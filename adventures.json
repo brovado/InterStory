@@ -1,0 +1,112 @@
+[
+  {
+    "id": "archmage",
+    "name": "ARCHMAGE",
+    "glyph": "❄",
+    "tagline": "Rise through the circles of magic.",
+    "archetypes": [
+      "Frost Mage",
+      "Pyromancer",
+      "Stormcaller",
+      "Arcane Scholar"
+    ],
+    "signature": "Spell circles, mana circulation, elemental affinity and magical research."
+  },
+  {
+    "id": "veilbound",
+    "name": "VEILBOUND",
+    "glyph": "🗡",
+    "tagline": "Become the blade between dimensions.",
+    "archetypes": [
+      "Spatial Assassin",
+      "Shadow Rogue",
+      "Rift Duelist"
+    ],
+    "signature": "Stealth, spatial movement, soul cultivation and signature weapon reforging."
+  },
+  {
+    "id": "calamity-engine",
+    "name": "CALAMITY ENGINE",
+    "glyph": "✴",
+    "tagline": "Evolve beyond the limits of existence.",
+    "archetypes": [
+      "Evolving Sovereign",
+      "Adaptive Entity",
+      "Genesis Architect"
+    ],
+    "signature": "Evolution, adaptation, parallel consciousness and optional autonomous domains."
+  },
+  {
+    "id": "wildsovereign",
+    "name": "WILDSOVEREIGN",
+    "glyph": "🐉",
+    "tagline": "Hunt legends. Forge a legacy.",
+    "archetypes": [
+      "Monster Hunter",
+      "Ranger",
+      "Battlemage",
+      "Artificer"
+    ],
+    "signature": "Exotic ecosystems, ecology, harvesting, signature gear crafting and discovery."
+  },
+  {
+    "id": "dungeon-lord",
+    "name": "DUNGEON LORD",
+    "glyph": "🏰",
+    "tagline": "Build the dungeon others fear.",
+    "archetypes": [
+      "Dungeon Lord",
+      "Monster Warden",
+      "Trap Architect"
+    ],
+    "signature": "Rooms, traps, minions, defense, exploration and resource management."
+  },
+  {
+    "id": "spellforge",
+    "name": "SPELLFORGE",
+    "glyph": "⚒",
+    "tagline": "Invent magic the world has never seen.",
+    "archetypes": [
+      "Artificer",
+      "Runesmith",
+      "Arcane Inventor"
+    ],
+    "signature": "Magic research, spell experiments, runes and inventive equipment."
+  },
+  {
+    "id": "beastmaster",
+    "name": "BEASTMASTER",
+    "glyph": "🐺",
+    "tagline": "Bond with extraordinary creatures.",
+    "archetypes": [
+      "Beast Tamer",
+      "Primal Ranger",
+      "Spirit Binder"
+    ],
+    "signature": "Creature bonds, synergies, creature evolution and habitats."
+  },
+  {
+    "id": "necropolis",
+    "name": "NECROPOLIS",
+    "glyph": "☠",
+    "tagline": "Command the forces beyond life.",
+    "archetypes": [
+      "Necromancer",
+      "Soulbinder",
+      "Death Knight"
+    ],
+    "signature": "Necromancy, soul arts, undead legions and ancient secrets."
+  },
+  {
+    "id": "kingmaker",
+    "name": "KINGMAKER",
+    "glyph": "♛",
+    "tagline": "Rise from adventurer to sovereign.",
+    "archetypes": [
+      "Warrior Lord",
+      "Diplomat",
+      "War Mage"
+    ],
+    "signature": "Settlements, diplomacy, armies, kingdom development and delegation."
+  }
+]
