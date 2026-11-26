@@ -104,7 +104,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
         output.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:24px;width:min(700px,90vw);max-height:85vh;overflow:auto";
         const heading=document.createElement("h2");heading.textContent="AI test result";
         const story=document.createElement("div");story.className="narrative";story.textContent=data.proposal.narrative;
-        const details=document.createElement("pre");details.className="mono";details.textContent=JSON.stringify(data.proposal.next_directives,null,2);
+        const details=document.createElement("div");renderDynamicDirectives(data.proposal.next_directives,details);
         const close=document.createElement("button");close.className="button gold";close.textContent="Close";close.onclick=()=>output.close();
         output.append(heading,story,details,close);document.body.append(output);output.addEventListener("close",()=>output.remove());output.showModal();return;
       }
@@ -128,3 +128,31 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   connect.addEventListener("click",()=>authenticate(input.value.trim(),dialog.querySelector("#backend-mode").value));
   try{const saved=localStorage.getItem(tokenKey), session=sessionStorage.getItem(tokenKey);if(saved||session){const mode=saved?"device":"session";dialog.querySelector("#backend-mode").value=mode;authenticate(saved||session,mode);}}catch(_){}
 })();
+
+function renderDynamicDirectives(groups, host){
+  const form=document.createElement("form");
+  const readers=[];
+  const add=(label,type,options=[])=>{
+    const wrap=document.createElement("div");wrap.className="field";
+    const title=document.createElement("label");title.textContent=label;wrap.append(title);
+    let control;
+    if(type==="single_select"||type==="multi_select"){
+      control=document.createElement("select");control.multiple=type==="multi_select";
+      if(!control.multiple){const blank=document.createElement("option");blank.value="";blank.textContent="Defer";control.append(blank);}
+      for(const option of options.slice(0,20)){const o=document.createElement("option");o.value=String(option.value??option.label??"");o.textContent=String(option.label??option.value??"")+(option.effect?" — "+option.effect:"");control.append(o);}
+    }else{control=document.createElement(type==="textarea"?"textarea":"input");if(type==="number")control.type="number";else if(type==="boolean")control.type="checkbox";}
+    control.id="dynamic-"+uid();title.htmlFor=control.id;wrap.append(control);form.append(wrap);
+    readers.push(()=>[label,control.multiple?Array.from(control.selectedOptions,o=>o.value).join("; "):type==="boolean"?String(control.checked):control.value]);
+  };
+  for(const group of groups.slice(0,12)){
+    if(!group||typeof group!=="object")continue;
+    const label=String(group.label??group.title??group.id??"Actions");
+    if(Array.isArray(group.fields)){for(const f of group.fields.slice(0,12)){if(!f||!["text","textarea","number","boolean","single_select","multi_select"].includes(f.type))continue;add(label+" / "+String(f.label??f.id),f.type,Array.isArray(f.options)?f.options.filter(o=>o&&typeof o==="object"):[]);}}
+    else if(Array.isArray(group.options)&&group.options.length)add(label,"single_select",group.options.filter(o=>o&&typeof o==="object"));
+  }
+  add("Custom actions","textarea");add("Experimentation","textarea");
+  const preview=document.createElement("pre");preview.className="mono";
+  const submit=document.createElement("button");submit.className="button gold";submit.type="submit";submit.textContent="Build next directive";
+  form.append(submit,preview);form.addEventListener("submit",e=>{e.preventDefault();preview.textContent=readers.map(read=>read()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");});
+  host.append(form);
+}
