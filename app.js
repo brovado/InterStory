@@ -56,7 +56,7 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
       panel.append(btn("Adventure roster",homeLive));
       const story=make("div",data.narrative);story.className="narrative";story.style.whiteSpace="pre-wrap";panel.append(story);
       const details=document.createElement("details");details.append(make("summary","Character & world state"));const pre=make("pre",JSON.stringify(data.state,null,2));pre.style.whiteSpace="pre-wrap";pre.style.overflowWrap="anywhere";details.append(pre);panel.append(details);
-      renderDynamicDirectives(data.next_directives,panel,(directive)=>play(data.campaign_id,data.turn,directive));
+      try{renderDynamicDirectives(data.next_directives,panel,(directive)=>play(data.campaign_id,data.turn,directive));}catch(e){const fallback=document.createElement("form");fallback.append(make("p","The generated choices could not be displayed: "+e.message));const raw=make("pre",JSON.stringify(data.next_directives,null,2));fallback.append(raw);const field=document.createElement("textarea");field.required=true;field.placeholder="Enter your next directives";const submit=make("button","Execute next turn");submit.type="submit";fallback.append(field,submit);fallback.onsubmit=e=>{e.preventDefault();play(data.campaign_id,data.turn,field.value)};panel.append(fallback);}
     }
     async function homeLive(){
       if(busy)return;frame("Create your own adventure");
@@ -137,7 +137,7 @@ function renderDynamicDirectives(groups,host,onSubmit){
         for(const option of choices){const tile=make("label",undefined,"choice-tile"),input=document.createElement("input");input.type=type==="single_select"?"radio":"checkbox";input.name=name;input.value=String(option.value??option.label??"");input.checked=type==="single_select"?(f.default!==undefined?input.value===String(f.default):input.value===""):Array.isArray(f.default)&&f.default.includes(input.value);const copy=make("span",String(option.label??option.value??""));if(option.description||option.effect)copy.append(make("small",String(option.description??option.effect)));tile.append(input,copy);wrap.append(tile);picks.push(input);}
         readers.push(()=>[label,picks.filter(p=>p.checked).map(p=>p.value).join("; ")]);
       }else{
-        const input=document.createElement(type==="textarea"?"textarea":"input");input.type=type==="number"?"number":type==="boolean"?"checkbox":"text";input.id="field-"+uid();wrap.firstChild.htmlFor=input.id;
+        const input=document.createElement(type==="textarea"?"textarea":"input");if(type!=="textarea")input.type=type==="number"?"number":type==="boolean"?"checkbox":"text";input.id="field-"+uid();wrap.firstChild.htmlFor=input.id;
         if(type==="number"){input.step="1";input.min=String(f.min??0);if(f.max!==undefined||budget!==null)input.max=String(f.max??budget);input.value=String(f.default??0);if(budget!==null)allocations.push(input);const total=make("small");if(Number.isFinite(f.base)){wrap.append(total);const refresh=()=>{total.textContent="Current "+f.base+" → "+(f.base+Number(input.value||0));};input.addEventListener("input",refresh);refresh();}input.addEventListener("input",update);}
         else if(type==="boolean")input.checked=f.default===true;else input.value=String(f.default??"");
         wrap.append(input);readers.push(()=>[label,type==="boolean"?(input.checked?"Yes":""):input.value]);
@@ -148,7 +148,7 @@ function renderDynamicDirectives(groups,host,onSubmit){
     for(const f of fields.slice(0,30))if(f&&["text","textarea","number","boolean","single_select","multi_select"].includes(f.type))add(f);
     update();checks.push(()=>allocations.every(a=>a.checkValidity()));
   }
-  for(const g of groups.slice(0,20))if(g&&typeof g==="object")section(g);
+  for(const g of (Array.isArray(groups)?groups:[]).slice(0,20))if(g&&typeof g==="object")section(g);
   section({label:"Your own direction",description:"Go beyond the suggested choices. Leave anything blank to defer.",fields:[{label:"Custom actions",type:"textarea"},{label:"Experimentation",type:"textarea"},{label:"Character development direction",type:"textarea"}]});
   const submit=make("button","Execute next turn","button gold");submit.type="submit";form.append(submit);
   form.onsubmit=e=>{e.preventDefault();if(!checks.every(c=>c()))return;const directive=readers.map(r=>r()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");onSubmit(directive||"Defer optional choices and continue the adventure.");};
