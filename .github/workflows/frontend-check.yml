@@ -4,6 +4,7 @@ on:
     paths:
       - "app.js"
       - "rpg-ui.js"
+      - "scenes.js"
       - "index.html"
       - ".github/workflows/frontend-check.yml"
   workflow_dispatch:
@@ -18,8 +19,10 @@ jobs:
         run: |
           node --check app.js
           node --check rpg-ui.js
+          node --check scenes.js
       - name: Check scripts are connected
         run: |
           grep -q 'rpg-ui.js' index.html
+          grep -q 'scenes.js' index.html
           grep -q 'InterStoryUI.dashboard' app.js
           grep -q 'InterStoryUI.renderActions' app.js
