@@ -54,7 +54,7 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
     function display(data){
       frame("Adventure · Turn "+data.turn);
       panel.append(btn("Adventure roster",homeLive));
-      const story=make("div",data.narrative);story.className="narrative";story.style.whiteSpace="pre-wrap";panel.append(story);
+      try{window.InterStoryScenes.render(data,panel);}catch(err){const story=make("div",data.narrative);story.className="narrative";story.style.whiteSpace="pre-wrap";panel.append(story);}
       try{window.InterStoryUI.dashboard(data,panel);}catch(err){const details=document.createElement("details");details.append(make("summary","Character & world state"));const pre=make("pre",JSON.stringify(data.state,null,2));details.append(pre);panel.append(details);showToast("Dashboard fallback: "+err.message);}
       try{window.InterStoryUI.renderActions(data.next_directives,panel,(directive)=>play(data.campaign_id,data.turn,directive),data.turn);}catch(e){const fallback=document.createElement("form");fallback.append(make("p","The generated choices could not be displayed: "+e.message));const raw=make("pre",JSON.stringify(data.next_directives,null,2));fallback.append(raw);const field=document.createElement("textarea");field.required=true;field.placeholder="Enter your next directives";const submit=make("button","Execute next turn");submit.type="submit";fallback.append(field,submit);fallback.onsubmit=e=>{e.preventDefault();play(data.campaign_id,data.turn,field.value)};panel.append(fallback);}
     }
