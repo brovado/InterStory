@@ -62,6 +62,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 
 (function setupBackendConnection(){
   let token="";
+  const tokenKey="interstory.backend.token";
   const api="https://api.github.com/repos/brovado/InterStoryBackend";
   const button=document.createElement("button");
   button.className="button secondary";
@@ -70,10 +71,11 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   const testButton=document.createElement("button");testButton.className="button gold";testButton.textContent="Test AI Turn";document.querySelector(".topbar .actions").append(testButton);
   const dialog=document.createElement("dialog");
   dialog.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:24px;width:min(460px,90vw)";
-  dialog.innerHTML='<h2>Connect private backend</h2><p>Enter your fine-grained GitHub token. It is held in memory only and cleared on refresh.</p><div class="field"><label for="backend-token">GitHub access token</label><input id="backend-token" type="password" autocomplete="off" spellcheck="false"></div><p id="backend-status" role="status"></p><div class="row-actions"><button class="button gold" id="backend-connect">Connect</button><button class="button secondary" id="backend-close">Close</button><button class="button secondary" id="backend-disconnect">Disconnect</button></div>';
+  dialog.innerHTML='<h2>Connect private backend</h2><p>Enter your fine-grained GitHub token. Choose how long this device should remember your connection. Persistent storage is accessible to scripts running on this site.</p><div class="field"><label for="backend-token">GitHub access token</label><input id="backend-token" type="password" autocomplete="off" spellcheck="false"></div><div class="field"><label for="backend-mode">Remember connection</label><select id="backend-mode"><option value="temporary">Temporary — until refresh</option><option value="session">Session — survive refresh</option><option value="device">Remember this device — until disconnect</option></select></div><p id="backend-status" role="status"></p><div class="row-actions"><button class="button gold" id="backend-connect">Connect</button><button class="button secondary" id="backend-close">Close</button><button class="button secondary" id="backend-disconnect">Disconnect</button></div>';
   document.body.append(dialog);
   const input=dialog.querySelector("#backend-token"), status=dialog.querySelector("#backend-status"), connect=dialog.querySelector("#backend-connect");
-  function reset(){token="";input.value="";button.textContent="Connect Backend";status.textContent="Disconnected";}
+  function clearStored(){try{localStorage.removeItem(tokenKey);sessionStorage.removeItem(tokenKey)}catch(_) {}}
+  function reset(){clearStored();token="";input.value="";button.textContent="Connect Backend";status.textContent="Disconnected";}
   button.addEventListener("click",()=>{input.value="";dialog.showModal()});
   dialog.querySelector("#backend-close").addEventListener("click",()=>dialog.close());
   dialog.addEventListener("close",()=>{input.value=""});
@@ -110,8 +112,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     }catch(e){showToast(e.message);}
     finally{testButton.disabled=false;testButton.textContent="Test AI Turn";}
   });
-  connect.addEventListener("click",async()=>{
-    const candidate=input.value.trim();input.value="";
+  async function authenticate(candidate,mode){
+    input.value="";
     if(!candidate){status.textContent="Enter your token first.";return;}
     connect.disabled=true;status.textContent="Checking private repository access...";
     try{
@@ -119,8 +121,10 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
       const result=await response.json();
       if(result.type!=="file")throw Error("Unexpected repository response");
-      token=candidate;button.textContent="Backend connected";status.textContent="Connected. Private result access verified. Browser generation test is available.";
+      token=candidate;clearStored();try{if(mode==="device")localStorage.setItem(tokenKey,token);if(mode==="session")sessionStorage.setItem(tokenKey,token)}catch(_){showToast("Connection works, but browser storage is unavailable.")}button.textContent="Backend connected";status.textContent="Connected. Private result access verified. Browser generation test is available.";
     }catch(e){reset();status.textContent="Connection failed: "+e.message;}
     finally{connect.disabled=false;}
-  });
+  }
+  connect.addEventListener("click",()=>authenticate(input.value.trim(),dialog.querySelector("#backend-mode").value));
+  try{const saved=localStorage.getItem(tokenKey), session=sessionStorage.getItem(tokenKey);if(saved||session){const mode=saved?"device":"session";dialog.querySelector("#backend-mode").value=mode;authenticate(saved||session,mode);}}catch(_){}
 })();
