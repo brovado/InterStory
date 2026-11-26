@@ -67,6 +67,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   button.className="button secondary";
   button.textContent="Connect Backend";
   document.querySelector(".topbar .actions").append(button);
+  const testButton=document.createElement("button");testButton.className="button gold";testButton.textContent="Test AI Turn";document.querySelector(".topbar .actions").append(testButton);
   const dialog=document.createElement("dialog");
   dialog.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:24px;width:min(460px,90vw)";
   dialog.innerHTML='<h2>Connect private backend</h2><p>Enter your fine-grained GitHub token. It is held in memory only and cleared on refresh.</p><div class="field"><label for="backend-token">GitHub access token</label><input id="backend-token" type="password" autocomplete="off" spellcheck="false"></div><p id="backend-status" role="status"></p><div class="row-actions"><button class="button gold" id="backend-connect">Connect</button><button class="button secondary" id="backend-close">Close</button><button class="button secondary" id="backend-disconnect">Disconnect</button></div>';
@@ -77,6 +78,38 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   dialog.querySelector("#backend-close").addEventListener("click",()=>dialog.close());
   dialog.addEventListener("close",()=>{input.value=""});
   dialog.querySelector("#backend-disconnect").addEventListener("click",reset);
+  testButton.addEventListener("click",async()=>{
+    if(!token){showToast("Connect Backend first.");return;}
+    const directive=prompt("Test directive (does not modify characters):","Explore the ruined tower and investigate its magic.");
+    if(!directive||!confirm("Generate one paid AI test turn?"))return;
+    const credential=token, id=uid();
+    const headers={Authorization:"Bearer "+credential,Accept:"application/vnd.github+json","Content-Type":"application/json"};
+    testButton.disabled=true;
+    try{
+      testButton.textContent="Submitting...";
+      const response=await fetch(api+"/actions/workflows/smoke-test.yml/dispatches",{method:"POST",headers,redirect:"error",body:JSON.stringify({ref:"main",inputs:{directive:directive.slice(0,4000),request_id:id}})});
+      if(!response.ok)throw Error("Dispatch HTTP "+response.status);
+      testButton.textContent="Generating...";
+      for(let i=0;i<90;i++){
+        await new Promise(resolve=>setTimeout(resolve,4000));
+        if(token!==credential)throw Error("Disconnected; submitted workflow may still finish.");
+        const result=await fetch(api+"/contents/test-results/"+encodeURIComponent(id)+".json",{headers,cache:"no-store",redirect:"error"});
+        if(result.status===404)continue;
+        if(!result.ok)throw Error("Result HTTP "+result.status);
+        const file=await result.json();
+        const data=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(file.content.replace(/\s/g,"")),c=>c.charCodeAt(0))));
+        const output=document.createElement("dialog");
+        output.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:24px;width:min(700px,90vw);max-height:85vh;overflow:auto";
+        const heading=document.createElement("h2");heading.textContent="AI test result";
+        const story=document.createElement("div");story.className="narrative";story.textContent=data.proposal.narrative;
+        const details=document.createElement("pre");details.className="mono";details.textContent=JSON.stringify(data.proposal.next_directives,null,2);
+        const close=document.createElement("button");close.className="button gold";close.textContent="Close";close.onclick=()=>output.close();
+        output.append(heading,story,details,close);document.body.append(output);output.addEventListener("close",()=>output.remove());output.showModal();return;
+      }
+      throw Error("Timed out waiting for result. Check GitHub Actions before retrying.");
+    }catch(e){showToast(e.message);}
+    finally{testButton.disabled=false;testButton.textContent="Test AI Turn";}
+  });
   connect.addEventListener("click",async()=>{
     const candidate=input.value.trim();input.value="";
     if(!candidate){status.textContent="Enter your token first.";return;}
@@ -86,7 +119,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
       if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
       const result=await response.json();
       if(result.type!=="file")throw Error("Unexpected repository response");
-      token=candidate;button.textContent="Backend connected";status.textContent="Connected. Private result access verified. Turn submission is not enabled yet.";
+      token=candidate;button.textContent="Backend connected";status.textContent="Connected. Private result access verified. Browser generation test is available.";
     }catch(e){reset();status.textContent="Connection failed: "+e.message;}
     finally{connect.disabled=false;}
   });
