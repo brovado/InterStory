@@ -1,0 +1,25 @@
+name: Frontend integrity tests
+on:
+  push:
+    paths:
+      - "app.js"
+      - "rpg-ui.js"
+      - "index.html"
+      - ".github/workflows/frontend-check.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check rpg-ui.js
+      - name: Check scripts are connected
+        run: |
+          grep -q 'rpg-ui.js' index.html
+          grep -q 'InterStoryUI.dashboard' app.js
+          grep -q 'InterStoryUI.renderActions' app.js
