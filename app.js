@@ -58,3 +58,36 @@ function exportAll(){download("interstory-saves.json",JSON.stringify({version:1,
 async function importSaves(file){if(!file)return;if(file.size>2_000_000){showToast("Import file exceeds 2 MB.");return}try{const d=JSON.parse(await file.text());if(d.version!==1||!Array.isArray(d.characters)||d.characters.length>100||!d.characters.every(validateCharacter))throw Error("Invalid save format");const merged=new Map(characters.map(c=>[c.id,c]));for(const c of d.characters)merged.set(c.id,c);if(merged.size>100)throw Error("Too many characters");if(!confirm("Import "+d.characters.length+" save(s)? Matching character IDs will be replaced."))return;characters=[...merged.values()];persist();home();showToast("Imported "+d.characters.length+" character save(s).")}catch(e){showToast("Import failed: "+e.message)}finally{el("import-file").value=""}}
 function init(){load();el("new-character-top").addEventListener("click",()=>newCharacter("wildsovereign"));el("back-home").addEventListener("click",home);el("export-all").addEventListener("click",exportAll);el("import-file").addEventListener("change",e=>importSaves(e.target.files?.[0]));renderHome();fetch("./adventures.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(data=>{if(Array.isArray(data)&&data.length&&data.every(m=>m&&typeof m.id==="string"&&Array.isArray(m.archetypes))){modules=data;if(!current)renderHome()}}).catch(()=>{});}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
+
+
+(function setupBackendConnection(){
+  let token="";
+  const api="https://api.github.com/repos/brovado/InterStoryBackend";
+  const button=document.createElement("button");
+  button.className="button secondary";
+  button.textContent="Connect Backend";
+  document.querySelector(".topbar .actions").append(button);
+  const dialog=document.createElement("dialog");
+  dialog.style.cssText="background:#151e2c;color:#edf0f8;border:1px solid #344156;border-radius:12px;padding:24px;width:min(460px,90vw)";
+  dialog.innerHTML='<h2>Connect private backend</h2><p>Enter your fine-grained GitHub token. It is held in memory only and cleared on refresh.</p><div class="field"><label for="backend-token">GitHub access token</label><input id="backend-token" type="password" autocomplete="off" spellcheck="false"></div><p id="backend-status" role="status"></p><div class="row-actions"><button class="button gold" id="backend-connect">Connect</button><button class="button secondary" id="backend-close">Close</button><button class="button secondary" id="backend-disconnect">Disconnect</button></div>';
+  document.body.append(dialog);
+  const input=dialog.querySelector("#backend-token"), status=dialog.querySelector("#backend-status"), connect=dialog.querySelector("#backend-connect");
+  function reset(){token="";input.value="";button.textContent="Connect Backend";status.textContent="Disconnected";}
+  button.addEventListener("click",()=>{input.value="";dialog.showModal()});
+  dialog.querySelector("#backend-close").addEventListener("click",()=>dialog.close());
+  dialog.addEventListener("close",()=>{input.value=""});
+  dialog.querySelector("#backend-disconnect").addEventListener("click",reset);
+  connect.addEventListener("click",async()=>{
+    const candidate=input.value.trim();input.value="";
+    if(!candidate){status.textContent="Enter your token first.";return;}
+    connect.disabled=true;status.textContent="Checking private repository access...";
+    try{
+      const response=await fetch(api+"/contents/test-results/latest.json",{headers:{Authorization:"Bearer "+candidate,Accept:"application/vnd.github+json"},cache:"no-store",redirect:"error"});
+      if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
+      const result=await response.json();
+      if(result.type!=="file")throw Error("Unexpected repository response");
+      token=candidate;button.textContent="Backend connected";status.textContent="Connected. Private result access verified. Turn submission is not enabled yet.";
+    }catch(e){reset();status.textContent="Connection failed: "+e.message;}
+    finally{connect.disabled=false;}
+  });
+})();
