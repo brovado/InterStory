@@ -1,4 +1,5 @@
 "use strict";
+const el=id=>document.getElementById(id);
 const uid=()=>globalThis.crypto?.randomUUID?.()||("ch-"+Date.now()+"-"+Math.random().toString(36).slice(2));
 function showToast(message){const t=el("toast");t.textContent=message;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
 
@@ -73,11 +74,11 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
     if(!candidate){status.textContent="Enter your token first.";return;}
     connect.disabled=true;status.textContent="Checking private repository access...";
     try{
-      const response=await fetch(api+"/contents/test-results/latest.json",{headers:{Authorization:"Bearer "+candidate,Accept:"application/vnd.github+json"},cache:"no-store",redirect:"error"});
+      const response=await fetch(api,{headers:{Authorization:"Bearer "+candidate,Accept:"application/vnd.github+json"},cache:"no-store",redirect:"error"});
       if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
       const result=await response.json();
-      if(result.type!=="file")throw Error("Unexpected repository response");
-      token=candidate;document.querySelector(".topbar .pill").textContent="AI CONNECTED";clearStored();try{if(mode==="device")localStorage.setItem(tokenKey,token);if(mode==="session")sessionStorage.setItem(tokenKey,token)}catch(_){showToast("Connection works, but browser storage is unavailable.")}button.textContent="Backend connected";status.textContent="Connected. Ready to play.";dialog.close();refreshHome();
+      if(result.full_name!=="brovado/InterStoryBackend")throw Error("Unexpected repository response");
+      token=candidate;document.querySelector(".topbar .pill").textContent="AI CONNECTED";clearStored();try{if(mode==="device")localStorage.setItem(tokenKey,token);if(mode==="session")sessionStorage.setItem(tokenKey,token)}catch(_){showToast("Connection works, but browser storage is unavailable.")}button.textContent="Backend connected";status.textContent="Connected. Ready to play.";if(dialog.open)dialog.close();refreshHome();
     }catch(e){reset();status.textContent="Connection failed: "+e.message;}
     finally{connect.disabled=false;}
   }
