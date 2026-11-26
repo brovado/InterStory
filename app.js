@@ -60,8 +60,33 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
     }
     async function homeLive(){
       if(busy)return;frame("Create your own adventure");
-      const vision=document.createElement("textarea");vision.rows=7;vision.style.width="100%";vision.placeholder="Describe your world, character concept, power fantasy, mechanics and preferred gameplay…";
-      panel.append(vision,btn("Generate character creation",()=>{if(!vision.value.trim())return;if(!token){button.click();return;}const id=uid();remember(id,vision.value.slice(0,60));play(id,-1,vision.value);}),make("h3","Resume adventures"));
+      const creation=document.createElement("form");
+      const fields=document.createElement("div");fields.className="fields";creation.append(fields);
+      const readers=[];
+      const lever=(label,options)=>{
+        const wrap=document.createElement("div");wrap.className="field";
+        const title=make("label",label),select=document.createElement("select"),custom=document.createElement("input");
+        select.id="creation-"+uid();title.htmlFor=select.id;
+        for(const value of [...options,"Custom…"]){const o=make("option",value);o.value=value;select.append(o);}
+        custom.type="text";custom.placeholder="Your own "+label.toLowerCase();custom.hidden=true;custom.maxLength=300;
+        select.onchange=()=>{custom.hidden=select.value!=="Custom…";custom.required=!custom.hidden;if(!custom.hidden)custom.focus();};
+        wrap.append(title,select,custom);fields.append(wrap);
+        readers.push(()=>label+": "+(select.value==="Custom…"?custom.value.trim():select.value));
+      };
+      lever("World / setting",["Classic high fantasy","Dark fantasy","Cultivation / ascension","Dungeon and guild fantasy","Magitech fantasy","Monster hunting wilderness","Surprise me"]);
+      lever("Character archetype",["Spellcaster / mage","Warrior / weapon master","Rogue / assassin","Summoner / necromancer","Artificer / inventor","Monster / evolving entity","Hybrid / discover my own"]);
+      lever("Power progression",["Rapid earned power growth","Steady RPG progression","Evolution and transformations","Research and mastery","Empire / domain building","Surprise me"]);
+      lever("Gameplay focus",["Balanced adventure and progression","Combat and dungeon exploration","Magic research and experimentation","Crafting and equipment upgrades","Exploration and discovery","Strategy and autonomous systems"]);
+      lever("Starting power",["Promising beginner","Experienced adventurer","Exceptional prodigy","Already powerful","Unusual dormant potential"]);
+      lever("Challenge",["Heroic power fantasy","Balanced challenge","Dangerous and tactical","Brutal survival"]);
+      lever("Turn complexity",["Balanced — meaningful choices","Compact — fewer choices","Detailed — deeper management"]);
+      const nameWrap=document.createElement("div");nameWrap.className="field";const nameLabel=make("label","Character name (optional)");const name=document.createElement("input");name.id="creation-name";nameLabel.htmlFor=name.id;name.placeholder="Let the DM suggest a name";name.maxLength=100;nameWrap.append(nameLabel,name);fields.append(nameWrap);
+      const vision=document.createElement("textarea");vision.rows=3;vision.style.width="100%";vision.placeholder="Optional: signature abilities, unusual mechanics, story direction, anything the selections missed…";vision.maxLength=4000;
+      const visionLabel=make("label","Additional vision");vision.id="creation-vision";visionLabel.htmlFor=vision.id;
+      const generate=make("button","Generate character creation");generate.className="button gold";generate.type="submit";
+      creation.append(visionLabel,vision,generate);
+      creation.onsubmit=e=>{e.preventDefault();if(!token){button.click();return;}const directive=["Design an interactive character creation form using these preferences as guidance, not rigid restrictions.",...readers.map(read=>read()),"Character name: "+(name.value.trim()||"Suggest one"),"Additional vision: "+(vision.value.trim()||"None")].join("\n");const id=uid();remember(id,name.value.trim()||readers[1]().split(": ").slice(1).join(": "));play(id,-1,directive);};
+      panel.append(creation,make("h3","Resume adventures"));
       if(token){try{const response=await fetch(api+"/contents/campaigns",{headers:headers(),cache:"no-store"});if(response.ok){for(const file of await response.json()){if(file.type==="file"&&/^[a-zA-Z0-9-]+\.json$/.test(file.name)){const id=file.name.slice(0,-5);if(!roster().some(x=>x.id===id)){const data=await read("campaigns/"+file.name);if(data)remember(id,String(data.state.name||data.state.character?.name||"Adventure "+id.slice(0,8)));}}}}}catch(e){showToast("Cloud roster unavailable: "+e.message);}}
       if(!panel.contains(vision))return;
       for(const item of roster())panel.append(btn(item.name,async()=>{try{const data=await read("campaigns/"+item.id+".json");if(data)display(data);else showToast("No completed turn yet. Check GitHub Actions.")}catch(e){showToast(e.message)}}));
@@ -78,7 +103,7 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
       if(!response.ok)throw Error("GitHub returned HTTP "+response.status);
       const result=await response.json();
       if(result.full_name!=="brovado/InterStoryBackend")throw Error("Unexpected repository response");
-      token=candidate;document.querySelector(".topbar .pill").textContent="AI CONNECTED";clearStored();try{if(mode==="device")localStorage.setItem(tokenKey,token);if(mode==="session")sessionStorage.setItem(tokenKey,token)}catch(_){showToast("Connection works, but browser storage is unavailable.")}button.textContent="Backend connected";status.textContent="Connected. Ready to play.";if(dialog.open)dialog.close();refreshHome();
+      token=candidate;document.querySelector(".topbar .pill").textContent="AI CONNECTED";clearStored();try{if(mode==="device")localStorage.setItem(tokenKey,token);if(mode==="session")sessionStorage.setItem(tokenKey,token)}catch(_){showToast("Connection works, but browser storage is unavailable.")}button.textContent="Backend connected";status.textContent="Connected. Ready to play.";if(dialog.open)dialog.close();if(!document.getElementById("creation-vision"))refreshHome();
     }catch(e){reset();status.textContent="Connection failed: "+e.message;}
     finally{connect.disabled=false;}
   }
