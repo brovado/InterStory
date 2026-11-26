@@ -112,30 +112,45 @@ function showToast(message){const t=el("toast");t.textContent=message;t.classLis
   try{const saved=localStorage.getItem(tokenKey), session=sessionStorage.getItem(tokenKey);if(saved||session){const mode=saved?"device":"session";dialog.querySelector("#backend-mode").value=mode;authenticate(saved||session,mode);}}catch(_){}
 })();
 
-function renderDynamicDirectives(groups, host, onSubmit){
-  const form=document.createElement("form");
-  const readers=[];
-  const add=(label,type,options=[])=>{
-    const wrap=document.createElement("div");wrap.className="field";
-    const title=document.createElement("label");title.textContent=label;wrap.append(title);
-    let control;
-    if(type==="single_select"||type==="multi_select"){
-      control=document.createElement("select");control.multiple=type==="multi_select";
-      if(!control.multiple){const blank=document.createElement("option");blank.value="";blank.textContent="Defer";control.append(blank);}
-      for(const option of options.slice(0,20)){const o=document.createElement("option");o.value=String(option.value??option.label??"");o.textContent=String(option.label??option.value??"")+(option.effect?" — "+option.effect:"");control.append(o);}
-    }else{control=document.createElement(type==="textarea"?"textarea":"input");if(type==="number")control.type="number";else if(type==="boolean")control.type="checkbox";}
-    control.id="dynamic-"+uid();title.htmlFor=control.id;wrap.append(control);form.append(wrap);
-    readers.push(()=>[label,control.multiple?Array.from(control.selectedOptions,o=>o.value).join("; "):type==="boolean"?String(control.checked):control.value]);
-  };
-  for(const group of groups.slice(0,12)){
-    if(!group||typeof group!=="object")continue;
-    const label=String(group.label??group.title??group.id??"Actions");
-    if(Array.isArray(group.fields)){for(const f of group.fields.slice(0,12)){if(!f||!["text","textarea","number","boolean","single_select","multi_select"].includes(f.type))continue;add(label+" / "+String(f.label??f.id),f.type,Array.isArray(f.options)?f.options.filter(o=>o&&typeof o==="object"):[]);}}
-    else if(Array.isArray(group.options)&&group.options.length)add(label,"single_select",group.options.filter(o=>o&&typeof o==="object"));
+function renderDynamicDirectives(groups,host,onSubmit){
+  const form=document.createElement("form");form.className="turn-form";
+  const readers=[], checks=[];
+  const make=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e};
+  function section(group){
+    const card=make("section",undefined,"decision-card"),context=make("div",undefined,"decision-context"),controls=make("div",undefined,"decision-controls");
+    context.append(make("h3",String(group.label??group.title??"Actions")));
+    if(group.description)context.append(make("p",String(group.description)));
+    card.append(context,controls);form.append(card);
+    const budget=Number.isInteger(group.budget)&&group.budget>=0?group.budget:null;
+    const allocations=[];
+    const counter=make("strong",undefined,"allocation-counter");
+    if(budget!==null)context.append(counter);
+    function update(){if(budget===null)return;const spent=allocations.reduce((sum,a)=>sum+Number(a.value||0),0);counter.textContent=(budget-spent)+" / "+budget+" points remaining";counter.classList.toggle("over-budget",spent>budget);for(const a of allocations)a.setCustomValidity(spent>budget?"Allocation exceeds available points":"");}
+    function add(f){
+      const type=f.type,label=String(f.label??f.id??"Choice"),wrap=make("div",undefined,"decision-field");
+      if(/points remaining|remaining points|points available/i.test(label)&&type==="number"){wrap.append(make("p","Available points are shown in the character state; do not enter a balance."));controls.append(wrap);return;}
+      wrap.append(make("label",label));if(f.description)wrap.append(make("small",String(f.description)));
+      if(type==="single_select"||type==="multi_select"){
+        const options=Array.isArray(f.options)?f.options.filter(o=>o&&typeof o==="object").slice(0,30):[];
+        const picks=[];const name="pick-"+uid();
+        const choices=type==="single_select"?[{label:"Defer",value:""},...options]:options;
+        for(const option of choices){const tile=make("label",undefined,"choice-tile"),input=document.createElement("input");input.type=type==="single_select"?"radio":"checkbox";input.name=name;input.value=String(option.value??option.label??"");input.checked=type==="single_select"?(f.default!==undefined?input.value===String(f.default):input.value===""):Array.isArray(f.default)&&f.default.includes(input.value);const copy=make("span",String(option.label??option.value??""));if(option.description||option.effect)copy.append(make("small",String(option.description??option.effect)));tile.append(input,copy);wrap.append(tile);picks.push(input);}
+        readers.push(()=>[label,picks.filter(p=>p.checked).map(p=>p.value).join("; ")]);
+      }else{
+        const input=document.createElement(type==="textarea"?"textarea":"input");input.type=type==="number"?"number":type==="boolean"?"checkbox":"text";input.id="field-"+uid();wrap.firstChild.htmlFor=input.id;
+        if(type==="number"){input.step="1";input.min=String(f.min??0);if(f.max!==undefined||budget!==null)input.max=String(f.max??budget);input.value=String(f.default??0);if(budget!==null)allocations.push(input);const total=make("small");if(Number.isFinite(f.base)){wrap.append(total);const refresh=()=>{total.textContent="Current "+f.base+" → "+(f.base+Number(input.value||0));};input.addEventListener("input",refresh);refresh();}input.addEventListener("input",update);}
+        else if(type==="boolean")input.checked=f.default===true;else input.value=String(f.default??"");
+        wrap.append(input);readers.push(()=>[label,type==="boolean"?(input.checked?"Yes":""):input.value]);
+      }
+      controls.append(wrap);
+    }
+    const fields=Array.isArray(group.fields)?group.fields:Array.isArray(group.options)?[{label:"Choose action",type:"single_select",options:group.options}]:[];
+    for(const f of fields.slice(0,30))if(f&&["text","textarea","number","boolean","single_select","multi_select"].includes(f.type))add(f);
+    update();checks.push(()=>allocations.every(a=>a.checkValidity()));
   }
-  add("Custom actions","textarea");add("Experimentation","textarea");
-  const preview=document.createElement("pre");preview.hidden=true;
-  const submit=document.createElement("button");submit.className="button gold";submit.type="submit";submit.textContent=onSubmit?"Resolve next turn":"Build next directive";
-  form.append(submit);form.addEventListener("submit",e=>{e.preventDefault();preview.textContent=readers.map(read=>read()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");if(onSubmit)onSubmit(preview.textContent,submit);});
+  for(const g of groups.slice(0,20))if(g&&typeof g==="object")section(g);
+  section({label:"Your own direction",description:"Go beyond the suggested choices. Leave anything blank to defer.",fields:[{label:"Custom actions",type:"textarea"},{label:"Experimentation",type:"textarea"},{label:"Character development direction",type:"textarea"}]});
+  const submit=make("button","Execute next turn","button gold");submit.type="submit";form.append(submit);
+  form.onsubmit=e=>{e.preventDefault();if(!checks.every(c=>c()))return;const directive=readers.map(r=>r()).filter(([,v])=>v!=="").map(([k,v])=>k+": "+v).join("\n");onSubmit(directive||"Defer optional choices and continue the adventure.");};
   host.append(form);
 }
